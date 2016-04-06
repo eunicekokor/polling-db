@@ -1,8 +1,8 @@
+#!/usr/bin/env python
+
 import requests
 import time
 import redis
-geojson = {}
-json = {}
 ####################
 # Info We Care About Retreiving from this fetch
 # latitude, longitude, street_name, zip_code, complaint_type, created_date
