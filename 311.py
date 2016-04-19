@@ -47,7 +47,9 @@ def get_historical_complaints():
       polling = False
     # keys = conn.keys("complaintID:*")
     keys = conn.keys()
-    values = conn.mget(keys)
+    values = []
+    if keys:
+      values = conn.mget(keys)
     for result in response_dict:
       # for each complaint, log into redis
       # filtering for specific months
@@ -56,14 +58,15 @@ def get_historical_complaints():
       unique_key = result['unique_key']
       if '-01-' in date or '-04-' in date or '-07-' in date or '-10-' in date:
         if unique_key not in values:
-          longitude = result['location']['longitude']
-          latitude = result['location']['latitude']
-          neighborhood = testLoc(longitude, latitude)
-          if neighborhood:
-            counter += 1
-            print "Adding new {} data to DB: {} \n".format(neighborhood, result)
-            insert_key = "complaintID:{}".format(result['unique_key'])
-            conn.rpush(neighborhood, (result['complaint_type'], insert_key))
+          if 'location' in result:
+            longitude = result['location']['longitude']
+            latitude = result['location']['latitude']
+            neighborhood = testLoc(longitude, latitude)
+            if neighborhood:
+              counter += 1
+              print "Adding new {} data to DB: {} \n".format(neighborhood, result)
+              insert_key = "complaintID:{}".format(result['unique_key'])
+              conn.rpush(neighborhood, (result['complaint_type'], insert_key))
 
     final = time.time()
     print "Total Time: {} seconds".format(final-initial)
@@ -104,7 +107,11 @@ def get_realtime():
       continue
 
 def testLoc(lon, lat):
+  print lon, lat
+  lon = float(lon)
+  lat = float(lat)
   q = {"geometry": {"$geoIntersects": { "$geometry": {"type": "Point", "coordinates": [lon, lat]}}}}
+  print q
   geoJSON = coll.find_one(q)
   if not geoJSON:
     return None
