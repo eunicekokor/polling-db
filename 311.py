@@ -66,7 +66,7 @@ def get_historical_complaints():
               counter += 1
               print "Adding new {} data to DB: {} \n".format(neighborhood, result)
               insert_key = "complaintID:{}".format(result['unique_key'])
-              conn.rpush(neighborhood, (result['complaint_type'], insert_key))
+              conn.rpush(neighborhood, (result['complaint_type'], insert_key, result['created_date']))
 
     final = time.time()
     print "Total Time: {} seconds".format(final-initial)
@@ -107,11 +107,11 @@ def get_realtime():
       continue
 
 def testLoc(lon, lat):
-  print lon, lat
+  # print lon, lat
   lon = float(lon)
   lat = float(lat)
   q = {"geometry": {"$geoIntersects": { "$geometry": {"type": "Point", "coordinates": [lon, lat]}}}}
-  print q
+  # print q
   geoJSON = coll.find_one(q)
   if not geoJSON:
     return None
