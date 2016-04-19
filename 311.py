@@ -4,12 +4,24 @@ import requests
 import time
 import redis
 import urllib3
+from pymongo import MongoClient, GEOSPHERE
 ####################
 # Info We Care About Retreiving from this fetch
 # latitude, longitude, street_name, zip_code, complaint_type, created_date
 # street_name
 # if complaint is a school complaint (to see if there more/less resources in certain areas)
 # we care about
+####################
+db_password = "macgregor0dewar"
+db_user = "storyteller"
+uri = 'mongodb://{user}:{pw}@ds015690.mlab.com:15690/storytelling'.format(user=db_user, pw=db_password)
+
+client=MongoClient(uri)
+db=client.get_database("storytelling")
+coll_name = "neighborhoodsDOCP"
+coll=db.get_collection(coll_name)
+coll.create_index([("coordinates", GEOSPHERE)])
+
 
 def get_historical_complaints():
   polling = True
@@ -20,7 +32,7 @@ def get_historical_complaints():
     # query= "$where=created_date"
     query_url = "https://data.cityofnewyork.us/resource/i3j2-v52s.json?$limit=50000&$offset={}".format(offset)
     print "Queried: {}".format(query_url)
-    
+
     # connect to Redis
     conn = redis.Redis(db=0)
     initial = time.time()
@@ -33,7 +45,9 @@ def get_historical_complaints():
     count = len(response_dict)
     if count <= 1:
       polling = False
-    keys = conn.keys("complaintID:*")
+    # keys = conn.keys("complaintID:*")
+    keys = conn.keys()
+    values = conn.mget(keys)
     for result in response_dict:
       # for each complaint, log into redis
       # filtering for specific months
@@ -41,11 +55,15 @@ def get_historical_complaints():
       date = result['created_date']
       unique_key = result['unique_key']
       if '-01-' in date or '-04-' in date or '-07-' in date or '-10-' in date:
-        if unique_key not in keys:
-          counter += 1
-	  print "Adding new data to DB: {} \n".format(result)
-          insert_key = "complaintID:{}".format(result['unique_key'])
-          conn.set(insert_key, result)
+        if unique_key not in values:
+          longitude = result['location']['longitude']
+          latitude = result['location']['latitude']
+          neighborhood = testLoc(longitude, latitude)
+          if neighborhood:
+            counter += 1
+            print "Adding new {} data to DB: {} \n".format(neighborhood, result)
+            insert_key = "complaintID:{}".format(result['unique_key'])
+            conn.rpush(neighborhood, (result['complaint_type'], insert_key))
 
     final = time.time()
     print "Total Time: {} seconds".format(final-initial)
@@ -57,10 +75,10 @@ def get_historical_complaints():
 
 def get_realtime():
   # Setup Redis Connection
-  conn = redis.Redis()
+  conn2 = redis.Redis(db=1)
   # Load historical keys
-  historical_keys = conn.keys("complaintID:*")
-  # values = conn.mget(historical_keys)
+  historical_keys = conn2.keys()
+  hisitorical_values = conn2.mget(historical_keys)
 
   # Load "Today"'s json aka latest 50,000 complaints (maximum fetch size)
   query_url = "https://data.cityofnewyork.us/resource/i3j2-v52s.json?$limit=50000"
@@ -73,12 +91,26 @@ def get_realtime():
     # Check if there are any new entries
     # If there are, add to our historical database
     # If not, do nothing and move on
-    if result['unique_key'] not in historical_keys:
-      print "Adding {} \n".format(result)
-      # Redis insert
-      conn.set(result['unique_key'], result)
+    if result['unique_key'] not in historical_values:
+      longitude = result['location']['longitude']
+      latitude = result['location']['latitude']
+      neighborhood = testLoc(longitude, latitude)
+      if neighborhood:
+        print "Adding {} \n".format(result)
+        # Redis insert
+        ttl = 10
+        conn2.setex(time.time(), neighborhood, ttl)
     else:
       continue
+
+def testLoc(lon, lat):
+  q = {"geometry": {"$geoIntersects": { "$geometry": {"type": "Point", "coordinates": [lon, lat]}}}}
+  geoJSON = coll.find_one(q)
+  if not geoJSON:
+    return None
+  neighborhood = geoJSON['properties']['NTAName']
+  borough = geoJSON['properties']['BoroName']
+  return "{n}/{b}".format(n=neighborhood,b=borough)
 
 def main():
   # only run once
