@@ -62,7 +62,6 @@ def buildGraph():
     bar_chart.add('No of Complaints', cool)
     return flask.render_template('index.html', nodeIndex=nodeIndex, bar_chart=bar_chart, title=title)
 
-
 if __name__ == "__main__":
     app.debug = True
     app.run(host='0.0.0.0')
