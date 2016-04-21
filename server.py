@@ -74,9 +74,10 @@ def get_x_y(hoods, years):
   ''' 'name': blah blah/Manhattan,
       'count':[500, 342, 434] '''
 
-  pop_dict = get_population
+  pop_dict = get_population()
   for hood in hoods:
-    if hood in pop_dict:
+    hood_name = hood.split('/')[0]
+    if str(hood_name) in pop_dict:
       final_dict[hood] = {'name': hood, 'counts':[]}
 
       for year in years:
@@ -84,18 +85,15 @@ def get_x_y(hoods, years):
         for tup in conn.lrange(hood, 0, -1):
           if year in tup:
             count += 1
-        if pop_dict.get(hood, 0) == 0:
-          print str(hood) + " is not the right match"
-        else:
-          final_dict[hood]['counts'].append(count/pop_dict.get(hood, count))
-        final_dict[hood]['counts'].append(count)
+        ratio = 1000 * count / int(pop_dict.get(hood_name, count))
+        final_dict[hood]['counts'].append(ratio)
     else:
-      print str(hood) + " is not in the json database"
+      print str(hood_name) + " is not in the json database"
   return final_dict
 
 def get_population():
   with open('population.json') as f:
-  contents = json.load(f)['data']
+    contents = json.load(f)['data']
 
   pop_dict = {}
   for i,stuff in enumerate(contents):
