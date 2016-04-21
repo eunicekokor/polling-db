@@ -95,7 +95,7 @@ def get_x_y(hoods, years):
 
 def get_population():
   with open('population.json') as f:
-  contents = json.load(f)['data']
+    contents = json.load(f)['data']
 
   pop_dict = {}
   for i,stuff in enumerate(contents):
