@@ -9,8 +9,12 @@
 
 <body>
 Hello World
-{% for bar_chart in bar_charts%}
- <div>{{ bar_chart.render()|safe }}</div>
-{% endfor %}
+{#<div>{% for bar_chart in bar_charts%}
+ {{ bar_chart.render()|safe }}
+{% endfor %}</div>#}
+
+<div>
+{{ line_chart.render()|safe }}
+</div>
 </body>
 </html>
