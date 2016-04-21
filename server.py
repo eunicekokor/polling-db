@@ -26,9 +26,9 @@ def buildGraph():
                             disable_xml_declaration=True, x_label_rotation=90, spacing=5, margin=5, pretty_print=True)
       #bar_chart = pygal.StackedLine(width=1200, height=600,
       #                      explicit_size=True, title=title, fill=True)
-      bar_chart.x_labels = cities
+      bar_chart.x_labels = cities[:5]
       chart_string = 'No of Complaints out of {}'.format(total)
-      bar_chart.add(chart_string, counts)
+      bar_chart.add(chart_string, counts[:5])
       bar_charts.append(bar_chart)
     return flask.render_template('index.html', bar_charts=bar_charts, title=title)
 
@@ -38,9 +38,9 @@ def get_per_year(neighborhoods, year):
   total = 0
 
   for hood in neighborhoods:
-    nodeIndex[hood] = {'complaints':[], 'count':0}
+    nodeIndex[hood] = {'complaints':[], 'count':0, 'pop': 0}
     for tup in conn.lrange(hood, 0, -1):
-      if year in tup:
+      if year in tup and '-04-' in tup:
         nodeIndex[hood]['complaints'].append(tup)
         nodeIndex[hood]['count'] += 1
         total +=1
