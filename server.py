@@ -69,19 +69,41 @@ def get_per_year(neighborhoods, year):
   return complaint_no, cities, total
 
 def get_x_y(hoods, years):
-    final = []
-    final_dict = {}
-    ''' 'name': blah blah/Manhattan,
-	'count':[500, 342, 434]'''
-    for hood in hoods:
-	final_dict[hood] = {'name': hood, 'counts':[]}
-	for year in years:
-            count = 0
-            for tup in conn.lrange(hood, 0, -1):
-	        if year in tup:
-		    count += 1
-	    final_dict[hood]['counts'].append(count)
-    return final_dict
+  final = []
+  final_dict = {}
+  ''' 'name': blah blah/Manhattan,
+      'count':[500, 342, 434] '''
+
+  pop_dict = get_population
+  for hood in hoods:
+    if hood in pop_dict:
+      final_dict[hood] = {'name': hood, 'counts':[]}
+
+      for year in years:
+        count = 0
+        for tup in conn.lrange(hood, 0, -1):
+          if year in tup:
+            count += 1
+        if pop_dict.get(hood, 0) == 0:
+          print str(hood) + " is not the right match"
+        else:
+          final_dict[hood]['counts'].append(count/pop_dict.get(hood, count))
+        final_dict[hood]['counts'].append(count)
+    else:
+      print str(hood) + " is not in the json database"
+  return final_dict
+
+def get_population():
+  with open('population.json') as f:
+  contents = json.load(f)['data']
+
+  pop_dict = {}
+  for i,stuff in enumerate(contents):
+    if '2010' in contents[i]:
+      pop_dict[str(stuff[12])] = int(stuff[13])
+
+  return pop_dict
+
 
 if __name__ == "__main__":
     app.debug = True
