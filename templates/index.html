@@ -9,6 +9,8 @@
 
 <body>
 Hello World
- {{ bar_chart.render()|safe }}
+{% for bar_chart in bar_charts}}
+ <div>{{ bar_chart.render()|safe }}</div>
+{% endfor %}
 </body>
 </html>

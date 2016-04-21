@@ -13,54 +13,50 @@ def index():
 @app.route("/graph")
 def buildGraph():
 
-    links = []
-
+    years = ['2014', '2015', '2016']
     neighborhoods = conn.keys("*")
+    bar_charts = []
+    for year in years:
+      counts, cities, total = get_per_year(neighborhoods, year)
+      # create a bar chart
+      title = '311 Complaints For NYC Neighborhoods in {}'.format(year)
+      bar_chart = pygal.Bar(width=1200, height=600,
+                            explicit_size=False, title=title,
+                            style=DarkSolarizedStyle,
+                            disable_xml_declaration=True, x_label_rotation=90, spacing=5, margin=5, pretty_print=True)
+      #bar_chart = pygal.StackedLine(width=1200, height=600,
+      #                      explicit_size=True, title=title, fill=True)
+      bar_chart.x_labels = cities
+      chart_string = 'No of Complaints out of {}'.format(total)
+      bar_chart.add(chart_string, counts)
+      bar_charts.append(bar_chart)
+    return flask.render_template('index.html', bar_charts=bar_charts, title=title)
 
-    neighborhoodsWithEdges = []
-    nodeIndex = {}
+def get_per_year(neighborhoods, year):
+  neighborhoodsWithEdges = []
+  nodeIndex = {}
+  total = 0
 
-    # for each node we'll get the edges for that node, and add them
-    # to the edge list
-    for hood in neighborhoods:
-	nodeIndex[hood] = {'complaints':[], 'count':0}
-        for tup in conn.lrange(hood, 0, -1):
-	        nodeIndex[hood]['complaints'].append(tup)
-		nodeIndex[hood]['count'] += 1
-            #weight = int(weight)
-            #if weight > 2:
-            #    if station not in nodeIndex:
-            #        nodeIndex[station] = len(nodeIndex)
-            #        stationsWithEdges.append(station)
-            #    if target not in nodeIndex:
-            #        nodeIndex[target] = len(nodeIndex)
-            #        stationsWithEdges.append(target)
-            #    links.append({"source":nodeIndex[station], "target":nodeIndex[target], "weight":weight})
-            
-    #nodes = [{"name":s, "group":0} for s in stationsWithEdges]
-    #graph = {"links":links, "nodes":nodes}
-    #print json.dumps(graph, indent=1)
-    comp_list = []
-    for key, val in nodeIndex.iteritems():
-	temp = {"hood": key, "count": val['count']}
-	comp_list.append(temp)
-    cool = [i['count'] for i in comp_list]
-    cities = [str(i['hood']) for i in comp_list]
-    total = len(cool)
-    #cool = cool[:5]
-    #cities = cities[:5]
-    #print cities
-    # create a bar chart
-    title = '311 Complaints For NYC Neighborhoods'
-    bar_chart = pygal.Bar(width=1200, height=600,
-                          explicit_size=False, title=title,
-                          style=DarkSolarizedStyle,
-                          disable_xml_declaration=True, x_label_rotation=90, spacing=5, margin=5, pretty_print=True)
-    #bar_chart = pygal.StackedLine(width=1200, height=600,
-    #                      explicit_size=True, title=title, fill=True)
-    bar_chart.x_labels = cities
-    bar_chart.add('No of Complaints', cool)
-    return flask.render_template('index.html', nodeIndex=nodeIndex, bar_chart=bar_chart, title=title)
+  for hood in neighborhoods:
+    nodeIndex[hood] = {'complaints':[], 'count':0}
+    for tup in conn.lrange(hood, 0, -1):
+      if year in tup:
+        nodeIndex[hood]['complaints'].append(tup)
+        nodeIndex[hood]['count'] += 1
+        total +=1
+
+  comp_list = []
+  for key, val in nodeIndex.iteritems():
+    temp = {"hood": key, "count": val['count']}
+    comp_list.append(temp)
+
+  complaint_no = [i['count'] for i in comp_list]
+  cities = [str(i['hood']) for i in comp_list]
+
+  return complaint_no, cities, total
+
+def get_n_y(nodeIndex, hood, year):
+  return None
 
 if __name__ == "__main__":
     app.debug = True
