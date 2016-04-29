@@ -13,22 +13,33 @@ def index():
 
 @app.route("/graph")
 def buildGraph():
-    borough = request.args.get('b')
-    years = ['2014-01', '2015-01', '2016-01']
+    borough = request.args.getlist('b')
+    n_list = request.args.getlist('n')
+    years = ['2010', '2011', '2012', '2013', '2014', '2015']
     neighborhoods = conn.keys("*")
+    neighborhoods = get_dup(neighborhoods)
+    n_hoods = []
+    b_list = []
+    if borough:
+        for n in neighborhoods:
+	    if n.split('/')[1] in borough[0]:
+		n_hoods.append(n)
+	hood_complaints = get_x_y(n_hoods, years)
+    elif n_list:
+	for n in neighborhoods:
+	    if n.split('/')[0] in n_list[0]:
+		n_hoods.append(n)
+	hood_complaints = get_x_y(n_hoods, years)
+    else:
+	hood_complaints = get_x_y(neighborhoods, years)
     bar_charts = []
     line_chart = pygal.Line(disable_xml_declaration=True)
     line_chart.title = 'Complaints Per Neighborhood by Intervals'
     line_chart.x_labels = years
     title = "Seeing 311"
     # line_chart.x_labels = map(str, range(int(years[0]), int(years[-1])))
-    hood_complaints = get_x_y(neighborhoods, years)
     for hood in hood_complaints:
-        if borough:
-	    if borough in hood:
-	        line_chart.add(hood, hood_complaints[hood]['counts'])
-	else:
-            line_chart.add(hood, hood_complaints[hood]['counts'])
+	line_chart.add(hood, hood_complaints[hood]['counts'])
     #for year in years:
       #counts, cities, total = get_per_year(neighborhoods, year)
       # create a bar chart
@@ -45,18 +56,29 @@ def buildGraph():
       #bar_charts.append(bar_chart)
     return flask.render_template('index.html', bar_charts=bar_charts, title=title, line_chart=line_chart)
 
+def get_dup(nhoods):
+    n_dict = {}
+    for n in nhoods:
+	complaints = conn.lrange(n, 0, -1)
+	seen = set()
+	n_dict[n] = []
+	n_dict[n] = [x for x in complaints if x not in seen and not seen.add(x)] 
+    return n_dict
+
 def get_per_year(neighborhoods, year):
   neighborhoodsWithEdges = []
   nodeIndex = {}
   total = 0
-
+  print "got here"
   for hood in neighborhoods:
     nodeIndex[hood] = {'complaints':[], 'count':0, 'pop': 0}
     for tup in conn.lrange(hood, 0, -1):
       if year in tup:
-        nodeIndex[hood]['complaints'].append(tup)
-        nodeIndex[hood]['count'] += 1
-        total +=1
+	if tup not in nodeIndex[hood]['complaints']:
+          print tup
+          nodeIndex[hood]['complaints'].append(tup)
+          nodeIndex[hood]['count'] += 1
+          total +=1
 
   comp_list = []
   for key, val in nodeIndex.iteritems():
@@ -85,7 +107,8 @@ def get_x_y(hoods, years):
         for tup in conn.lrange(hood, 0, -1):
           if year in tup:
             count += 1
-        ratio = 1000 * count / int(pop_dict.get(hood_name, count))
+        ratio = 100 * count / float(pop_dict.get(hood_name, count))
+        ratio = round(ratio, 2)
         final_dict[hood]['counts'].append(ratio)
     else:
       print str(hood_name) + " is not in the json database"
