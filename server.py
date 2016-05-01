@@ -3,9 +3,17 @@ import redis
 import json
 import pygal
 from flask import request
+from psycopg2 import connect, extras
+from datetime import datetime
 from pygal.style import DarkSolarizedStyle
 app = flask.Flask(__name__)
 conn = redis.Redis(db=0)
+
+#
+# Setup for DB
+#
+def dict_cursor(conn, cursor_factory=extras.RealDictCursor):
+    return conn.cursor(cursor_factory=cursor_factory)
 
 @app.route("/")
 def index():
@@ -62,7 +70,7 @@ def get_dup(nhoods):
 	complaints = conn.lrange(n, 0, -1)
 	seen = set()
 	n_dict[n] = []
-	n_dict[n] = [x for x in complaints if x not in seen and not seen.add(x)] 
+	n_dict[n] = [x for x in complaints if x not in seen and not seen.add(x)]
     return n_dict
 
 def get_per_year(neighborhoods, year):
@@ -125,6 +133,49 @@ def get_population():
 
   return pop_dict
 
+# #### POSTGRES
+# def insert_in_postgres():
+#   with connect(DATABASE_URL) as conn:
+#     with dict_cursor(conn) as db:
+#       select_string = "hello"
+#       db.execute(select_string)
+#       result = db.fetchall()
+
+#       for r in result:
+#         print r
+#   return result
+
+@app.route("/gentrifying")
+def get_gentrifying_periods():
+  with open('oneyear.txt') as f:
+    contents = f.readlines()
+  index = 1
+
+  pop_dict = {}
+  keystuff = ""
+  for line in contents:
+    if index == 1:
+      keystuff = line.replace('\n', '')
+      pop_dict[keystuff] = {"start": None, "end": None}
+
+    if index == 2:
+      # pop_dict[keystuff]['start'] = datetime.strptime(line, '%c')
+      # print pop_dict[line]['start']
+      line = line.replace(' GMT+0000 (UTC)', '')
+      line = line.replace('\n', '')
+
+      pop_dict[keystuff]['start'] = datetime.strptime(line, '%a %b %d %Y %X')
+      #Sat Jan 31 2015 00:00:00 GMT+0000 (UTC)
+
+    if index == 3:
+      line = line.replace(' GMT+0000 (UTC)', '')
+      line = line.replace('\n', '')
+
+      pop_dict[keystuff]['end'] = datetime.strptime(line, '%a %b %d %Y %X')
+      index = 0
+    index += 1
+
+  return pop_dict
 
 if __name__ == "__main__":
     app.debug = True

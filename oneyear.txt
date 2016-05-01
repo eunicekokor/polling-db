@@ -1,4 +1,3 @@
-> db.oneyear.find().forEach( function(myDoc) { print(myDoc.name);print(myDoc.start);print(myDoc.end);})
 Pleasant Plains
 Sun Jan 31 2010 00:00:00 GMT+0000 (UTC)
 Mon Jan 31 2011 00:00:00 GMT+0000 (UTC)
