@@ -1,4 +1,3 @@
-> db.twoyears.find().forEach( function(myDoc) { print(myDoc.name);print(myDoc.start);print(myDoc.end);})
 Oakwood
 Sun Jan 31 2010 00:00:00 GMT+0000 (UTC)
 Tue Jan 31 2012 00:00:00 GMT+0000 (UTC)

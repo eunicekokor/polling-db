@@ -2,7 +2,7 @@ import flask
 import redis
 import json
 import pygal
-from flask import request
+from flask import request,jsonify
 #from psycopg2 import connect, extras
 from datetime import datetime
 from pygal.style import DarkSolarizedStyle
@@ -19,8 +19,13 @@ import pprint
 
 @app.route("/")
 def index():
-    awesome()
-    return "none"
+    q = request.args.get('q')
+    final_thing = awesome()
+    if q:
+      final_thing=final_thing.get(q)
+      return json.dumps(final_thing)
+    
+    return jsonify(final_thing)
 
 @app.route("/graph")
 def buildGraph():
@@ -203,8 +208,10 @@ def awesome():
   interval = 'oneyear'
   if interval == 'oneyear':
     years = ['2010','2011','2012','2013','2014','2015']
+    n = 1
   else:
     years = ['2010','2012','2014']
+    n= 2
   nhoods = get_n_counts()
   gent_periods = get_gentrifying_periods(interval)
   pp = pprint.PrettyPrinter(indent=4)
@@ -229,11 +236,16 @@ def awesome():
 	      d2 = nhoods[str(key)+'/'+str(end)]
 	      d1 = nhoods[str(key)+'/'+str(start)]
 	      percent_change = 100 * (d2-d1)/d1
+	      pd2 = nhoods.get(str(key)+'/'+str(int(end)-n))
+	      pd1 = nhoods.get(str(key)+'/'+str(int(start)-n))
+              previous = None
+	      if pd2 and pd1:
+		previous = 100 * (pd2-pd1)/pd1
 	      print "Finding stuff for {}: {}% Change".format(str(key),percent_change)
 	      if not str(key) in final_thing:
 		final_thing[str(key)] = []
-	      final_thing[str(key)].append({"start":start,"end":end,"delta":percent_change})
-  print pp.pprint(final_thing)
+	      final_thing[str(key)].append({"start":start,"end":end,"delta":percent_change, "prev":previous})
+  return final_thing
 if __name__ == "__main__":
     app.debug = True
     app.run(host='0.0.0.0')
