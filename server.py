@@ -3,21 +3,24 @@ import redis
 import json
 import pygal
 from flask import request
-from psycopg2 import connect, extras
+#from psycopg2 import connect, extras
 from datetime import datetime
 from pygal.style import DarkSolarizedStyle
 app = flask.Flask(__name__)
 conn = redis.Redis(db=0)
-
+conn2 = redis.Redis(db=2)
+from bson import json_util
+import pprint
 #
 # Setup for DB
 #
-def dict_cursor(conn, cursor_factory=extras.RealDictCursor):
-    return conn.cursor(cursor_factory=cursor_factory)
+#def dict_cursor(conn, cursor_factory=extras.RealDictCursor):
+#    return conn.cursor(cursor_factory=cursor_factory)
 
 @app.route("/")
 def index():
-    return flask.render_template('index.html')
+    awesome()
+    return "none"
 
 @app.route("/graph")
 def buildGraph():
@@ -77,13 +80,11 @@ def get_per_year(neighborhoods, year):
   neighborhoodsWithEdges = []
   nodeIndex = {}
   total = 0
-  print "got here"
   for hood in neighborhoods:
     nodeIndex[hood] = {'complaints':[], 'count':0, 'pop': 0}
     for tup in conn.lrange(hood, 0, -1):
       if year in tup:
 	if tup not in nodeIndex[hood]['complaints']:
-          print tup
           nodeIndex[hood]['complaints'].append(tup)
           nodeIndex[hood]['count'] += 1
           total +=1
@@ -103,7 +104,7 @@ def get_x_y(hoods, years):
   final_dict = {}
   ''' 'name': blah blah/Manhattan,
       'count':[500, 342, 434] '''
-
+  number_finished = 0
   pop_dict = get_population()
   for hood in hoods:
     hood_name = hood.split('/')[0]
@@ -118,9 +119,32 @@ def get_x_y(hoods, years):
         ratio = 100 * count / float(pop_dict.get(hood_name, count))
         ratio = round(ratio, 2)
         final_dict[hood]['counts'].append(ratio)
-    else:
-      print str(hood_name) + " is not in the json database"
+        hoodb = hood.split('/')[0] + "/{}".format(year)
+        print hoodb,count
+        #conn2.set(hoodb,count)
+    number_finished += 1
+    print "{} has {} complaints pp!".format(hood, final_dict[hood]['counts'])
+    print "{}/{} completed".format(number_finished,len(hoods))
   return final_dict
+
+def get_mapping():
+  with open('zillow_to_docp_mapping.json') as f:
+    contents = json.load(f)
+
+  pop_dict = {}
+  for k,v in contents.iteritems():
+    pop_dict[k] = v
+
+  return pop_dict
+
+def get_n_counts():
+    final = {}
+    neighborhoods = conn2.keys()
+    for n in neighborhoods:
+        count = int(conn2.get(n))
+        n_hood,year = n.split('/')
+        final[n] = count
+    return final
 
 def get_population():
   with open('population.json') as f:
@@ -133,21 +157,19 @@ def get_population():
 
   return pop_dict
 
-# #### POSTGRES
-# def insert_in_postgres():
-#   with connect(DATABASE_URL) as conn:
-#     with dict_cursor(conn) as db:
-#       select_string = "hello"
-#       db.execute(select_string)
-#       result = db.fetchall()
-
-#       for r in result:
-#         print r
-#   return result
-
-@app.route("/gentrifying")
-def get_gentrifying_periods():
-  with open('oneyear.txt') as f:
+def get_n_counts():
+    final = {}
+    neighborhoods = conn2.keys()
+    for n in neighborhoods:
+        count = int(conn2.get(n))
+        n_hood,year = n.split('/')
+        final[n] = count
+    return final
+        
+def get_gentrifying_periods(interval):
+  if interval is not 'oneyear' and interval is not 'twoyears':
+    return {}
+  with open(interval + '.txt') as f:
     contents = f.readlines()
   index = 1
 
@@ -156,27 +178,62 @@ def get_gentrifying_periods():
   for line in contents:
     if index == 1:
       keystuff = line.replace('\n', '')
-      pop_dict[keystuff] = {"start": None, "end": None}
-
+      if keystuff not in pop_dict:
+      	pop_dict[keystuff] = {"start":[], "end":[]}
     if index == 2:
       # pop_dict[keystuff]['start'] = datetime.strptime(line, '%c')
       # print pop_dict[line]['start']
       line = line.replace(' GMT+0000 (UTC)', '')
       line = line.replace('\n', '')
-
-      pop_dict[keystuff]['start'] = datetime.strptime(line, '%a %b %d %Y %X')
+      pop_dict[keystuff]['start'].append(datetime.strptime(line, '%a %b %d %Y %X'))
       #Sat Jan 31 2015 00:00:00 GMT+0000 (UTC)
 
     if index == 3:
       line = line.replace(' GMT+0000 (UTC)', '')
       line = line.replace('\n', '')
 
-      pop_dict[keystuff]['end'] = datetime.strptime(line, '%a %b %d %Y %X')
+      pop_dict[keystuff]['end'].append(datetime.strptime(line, '%a %b %d %Y %X'))
       index = 0
     index += 1
-
   return pop_dict
 
+def awesome():
+  #neighborhoods = conn.keys("*")
+  #neighborhoods = get_dup(neighborhoods)
+  interval = 'oneyear'
+  if interval == 'oneyear':
+    years = ['2010','2011','2012','2013','2014','2015']
+  else:
+    years = ['2010','2012','2014']
+  nhoods = get_n_counts()
+  gent_periods = get_gentrifying_periods(interval)
+  pp = pprint.PrettyPrinter(indent=4)
+  final_thing = {}
+  #pp.pprint(nhoods)
+  # Our gent period neighborhoods have different keys than our neighborhood complaints, so we made mappings
+  map_dict = get_mapping() #gent_period_keys:[n_hood_keys]
+  for k,v in gent_periods.iteritems():
+    if k in map_dict.keys():
+      possible_keys = map_dict[k] 
+      #pp.pprint(v)
+      for key in possible_keys:
+        starts = gent_periods.get(k)['start']
+        ends = gent_periods.get(k)['end']
+	for s,start in enumerate(starts):
+	  for e,end in enumerate(ends):
+	    if s == e:
+	      start = start.year
+	      end = end.year
+	      # print start,end,key
+	      # print nhoods
+	      d2 = nhoods[str(key)+'/'+str(end)]
+	      d1 = nhoods[str(key)+'/'+str(start)]
+	      percent_change = 100 * (d2-d1)/d1
+	      print "Finding stuff for {}: {}% Change".format(str(key),percent_change)
+	      if not str(key) in final_thing:
+		final_thing[str(key)] = []
+	      final_thing[str(key)].append({"start":start,"end":end,"delta":percent_change})
+  print pp.pprint(final_thing)
 if __name__ == "__main__":
     app.debug = True
     app.run(host='0.0.0.0')
