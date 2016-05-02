@@ -2,31 +2,34 @@ from datetime import datetime
 
 def get_gentrifying_periods():
   with open('oneyear.txt') as f:
-    contents = f.readlines()
-  index = 1
+    line = f.readline()
+    index = 1
 
-  pop_dict = {}
-  keystuff = ""
-  for line in contents:
+    pop_dict = {}
+    keystuff = ""
+
     if index == 1:
       keystuff = line.replace('\n', '')
-      pop_dict[keystuff] = {"start": None, "end": None}
+      pop_dict[keystuff] = []
 
     if index == 2:
       # pop_dict[keystuff]['start'] = datetime.strptime(line, '%c')
       # print pop_dict[line]['start']
-      line = line.replace(' GMT+0000 (UTC)', '')
-      line = line.replace('\n', '')
+      line1 = line.replace(' GMT+0000 (UTC)', '')
+      line1 = line1.replace('\n', '')
 
-      pop_dict[keystuff]['start'] = datetime.strptime(line, '%a %b %d %Y %X')
       #Sat Jan 31 2015 00:00:00 GMT+0000 (UTC)
+      line2 = f.readline()
+      line2 = line2.replace(' GMT+0000 (UTC)', '')
+      line2 = line2.replace('\n', '')
 
-    if index == 3:
-      line = line.replace(' GMT+0000 (UTC)', '')
-      line = line.replace('\n', '')
+      pop_dict[keystuff].append({"start": datetime.strptime(line1, '%a %b %d %Y %X'), "end":datetime.strptime(line2, '%a %b %d %Y %X')})
 
-      pop_dict[keystuff]['end'] = datetime.strptime(line, '%a %b %d %Y %X')
       index = 0
+
+    line = f.readline()
     index += 1
 
   return pop_dict
+
+print get_gentrifying_periods()

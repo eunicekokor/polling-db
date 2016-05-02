@@ -24,7 +24,7 @@ def index():
     if q:
       final_thing=final_thing.get(q)
       return json.dumps(final_thing)
-    
+
     return jsonify(final_thing)
 
 @app.route("/graph")
@@ -32,20 +32,21 @@ def buildGraph():
     borough = request.args.getlist('b')
     n_list = request.args.getlist('n')
     years = ['2010', '2011', '2012', '2013', '2014', '2015']
-    neighborhoods = conn.keys("*")
-    neighborhoods = get_dup(neighborhoods)
+    # neighborhoods = conn.keys("*")
+    # neighborhoods = get_dup(neighborhoods)
+    neighborhoods = get_n_counts()
     n_hoods = []
     b_list = []
     if borough:
         for n in neighborhoods:
 	    if n.split('/')[1] in borough[0]:
 		n_hoods.append(n)
-	hood_complaints = get_x_y(n_hoods, years)
+	#hood_complaints = get_x_y(n_hoods, years)
     elif n_list:
 	for n in neighborhoods:
 	    if n.split('/')[0] in n_list[0]:
 		n_hoods.append(n)
-	hood_complaints = get_x_y(n_hoods, years)
+	#hood_complaints = get_x_y(n_hoods, years)
     else:
 	hood_complaints = get_x_y(neighborhoods, years)
     bar_charts = []
@@ -56,22 +57,10 @@ def buildGraph():
     # line_chart.x_labels = map(str, range(int(years[0]), int(years[-1])))
     for hood in hood_complaints:
 	line_chart.add(hood, hood_complaints[hood]['counts'])
-    #for year in years:
-      #counts, cities, total = get_per_year(neighborhoods, year)
-      # create a bar chart
-      #title = '311 Complaints For NYC Neighborhoods in {}'.format(year)
-      #bar_chart = pygal.Bar(width=450, height=600,
-      #                      explicit_size=True, title=title,
-      #                      style=DarkSolarizedStyle,legend_at_bottom=True,
-      #                      disable_xml_declaration=True, x_label_rotation=90, spacing=5, margin=5, pretty_print=True)
-      #bar_chart = pygal.StackedLine(width=1200, height=600,
-      #                      explicit_size=True, title=title, fill=True)
-      #bar_chart.x_labels = cities[:10]
-      #chart_string = 'Total: {}'.format(total)
-      #bar_chart.add(chart_string, counts[:10])
-      #bar_charts.append(bar_chart)
+
     return flask.render_template('index.html', bar_charts=bar_charts, title=title, line_chart=line_chart)
 
+# checking if we have any duplicate complaints in our database
 def get_dup(nhoods):
     n_dict = {}
     for n in nhoods:
@@ -81,6 +70,7 @@ def get_dup(nhoods):
 	n_dict[n] = [x for x in complaints if x not in seen and not seen.add(x)]
     return n_dict
 
+# this gets
 def get_per_year(neighborhoods, year):
   neighborhoodsWithEdges = []
   nodeIndex = {}
@@ -104,6 +94,7 @@ def get_per_year(neighborhoods, year):
 
   return complaint_no, cities, total
 
+# we run this once to get the total # of complaints per neighborhood per year per neighborhood.
 def get_x_y(hoods, years):
   final = []
   final_dict = {}
@@ -142,6 +133,9 @@ def get_mapping():
 
   return pop_dict
 
+''' Returns neighborhoods in the format:
+      {"Neighborhood/Year" : Count}
+      Where count is the # of complaints from that year'''
 def get_n_counts():
     final = {}
     neighborhoods = conn2.keys()
@@ -170,7 +164,7 @@ def get_n_counts():
         n_hood,year = n.split('/')
         final[n] = count
     return final
-        
+
 def get_gentrifying_periods(interval):
   if interval is not 'oneyear' and interval is not 'twoyears':
     return {}
@@ -221,7 +215,7 @@ def awesome():
   map_dict = get_mapping() #gent_period_keys:[n_hood_keys]
   for k,v in gent_periods.iteritems():
     if k in map_dict.keys():
-      possible_keys = map_dict[k] 
+      possible_keys = map_dict[k]
       #pp.pprint(v)
       for key in possible_keys:
         starts = gent_periods.get(k)['start']
