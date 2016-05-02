@@ -2,7 +2,7 @@ import flask
 import redis
 import json
 import pygal
-from flask import request,jsonify
+from flask import request,jsonify,Response
 #from psycopg2 import connect, extras
 from datetime import datetime
 from pygal.style import DarkSolarizedStyle
@@ -20,10 +20,17 @@ import pprint
 @app.route("/")
 def index():
     q = request.args.get('q')
-    final_thing = awesome()
+    period= request.args.get('p')
+    if period:
+    	final_thing = awesome(period)
+    else:
+	final_thing = awesome(None)
     if q:
       final_thing=final_thing.get(q)
-      return json.dumps(final_thing)
+      return Response(json.dumps(final_thing), mimetype='application/json')
+    for k in final_thing.iterkeys():
+      for thing in final_thing[k]:
+        print thing
 
     return jsonify(final_thing)
 
@@ -34,21 +41,28 @@ def buildGraph():
     years = ['2010', '2011', '2012', '2013', '2014', '2015']
     # neighborhoods = conn.keys("*")
     # neighborhoods = get_dup(neighborhoods)
-    neighborhoods = get_n_counts()
-    n_hoods = []
-    b_list = []
-    if borough:
-        for n in neighborhoods:
-	    if n.split('/')[1] in borough[0]:
-		n_hoods.append(n)
-	#hood_complaints = get_x_y(n_hoods, years)
-    elif n_list:
-	for n in neighborhoods:
-	    if n.split('/')[0] in n_list[0]:
-		n_hoods.append(n)
-	#hood_complaints = get_x_y(n_hoods, years)
+    nbhs = get_n_counts()
+    final_list = {}
+    hood_complaints = {}
+    for nbh,v in nbhs.iteritems():
+        name = nbh.split('/')[0]
+        year = nbh.split('/')[1]
+        i=years.index(year)
+	if name not in final_list:
+	    final_list[name] = [None] * 6
+        #print i  
+        final_list[name][i] = nbhs[nbh]
+    if n_list:
+      print n_list
+      arglist = n_list[0]
+      arglist = arglist.split(',')
+      for n in arglist:
+        #print final_list
+	if n in final_list.keys():
+          #print "yayyyy we go here"
+          hood_complaints[n] = final_list[n]
     else:
-	hood_complaints = get_x_y(neighborhoods, years)
+      hood_complaints = final_list
     bar_charts = []
     line_chart = pygal.Line(disable_xml_declaration=True)
     line_chart.title = 'Complaints Per Neighborhood by Intervals'
@@ -56,7 +70,7 @@ def buildGraph():
     title = "Seeing 311"
     # line_chart.x_labels = map(str, range(int(years[0]), int(years[-1])))
     for hood in hood_complaints:
-	line_chart.add(hood, hood_complaints[hood]['counts'])
+	line_chart.add(hood, hood_complaints[hood])
 
     return flask.render_template('index.html', bar_charts=bar_charts, title=title, line_chart=line_chart)
 
@@ -166,10 +180,9 @@ def get_n_counts():
     return final
 
 def get_gentrifying_periods(interval):
-  if interval is not 'oneyear' and interval is not 'twoyears':
-    return {}
   with open(interval + '.txt') as f:
     contents = f.readlines()
+    print contents
   index = 1
 
   pop_dict = {}
@@ -196,10 +209,14 @@ def get_gentrifying_periods(interval):
     index += 1
   return pop_dict
 
-def awesome():
+def awesome(inter):
   #neighborhoods = conn.keys("*")
   #neighborhoods = get_dup(neighborhoods)
-  interval = 'oneyear'
+  print inter
+  if not inter:
+    interval = 'oneyear'
+  else:
+    interval = str(inter)
   if interval == 'oneyear':
     years = ['2010','2011','2012','2013','2014','2015']
     n = 1
@@ -216,6 +233,7 @@ def awesome():
   for k,v in gent_periods.iteritems():
     if k in map_dict.keys():
       possible_keys = map_dict[k]
+      #print possible_keys
       #pp.pprint(v)
       for key in possible_keys:
         starts = gent_periods.get(k)['start']
@@ -235,7 +253,7 @@ def awesome():
               previous = None
 	      if pd2 and pd1:
 		previous = 100 * (pd2-pd1)/pd1
-	      print "Finding stuff for {}: {}% Change".format(str(key),percent_change)
+	      #print "Finding stuff for {}: {}% Change".format(str(key),percent_change)
 	      if not str(key) in final_thing:
 		final_thing[str(key)] = []
 	      final_thing[str(key)].append({"start":start,"end":end,"delta":percent_change, "prev":previous})
