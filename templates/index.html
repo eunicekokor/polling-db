@@ -8,13 +8,25 @@
 </head>
 
 <body>
-Hello World
-{#<div>{% for bar_chart in bar_charts%}
- {{ bar_chart.render()|safe }}
-{% endfor %}</div>#}
-
 <div>
 {{ line_chart.render()|safe }}
 </div>
+
+<h3> List of gentrified Neighborhoods </h3>
+<form action='/graph' method='post'>
+<div class="checkbox">
+<ul>
+{% for thing in gent_list%}
+<li><input type="checkbox" name="check" value="{{thing['name']}}">{{thing['name']}} {{thing['intervals']}}</li>
+{%endfor%}
+
+<h3> All neighborhoods </h3>
+{% for hood in hood_complaints%}
+<li><input type="checkbox" name="check" value="{{hood}}">{{hood}}</li>
+{%endfor%}
+</ul>
+</div>
+<button type="submit">Submit</button>
+</form>
 </body>
 </html>

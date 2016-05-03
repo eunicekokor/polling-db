@@ -13,7 +13,7 @@ import pprint
 
 # charted with pygal, external library. Link: http://www.pygal.org/en/latest/documentation/types/line.html
 
-@app.route("/")
+@app.route("/", methods=["GET","POST"])
 def index():
     ''' Building a json response based on url arguments'''
     # two ways we can input into the url will be ?p=(oneyear or twoyears) or ?q=Neighborhood NAme
@@ -31,10 +31,10 @@ def index():
     #final_thing has all of our gentrified periods and their complaint changes in percent `delta` and `prev` (see README and below for exact definitions)
     return jsonify(final_thing)
 
-@app.route("/graph")
+@app.route("/graph", methods=["GET", "POST"])
 def buildGraph():
     ''' building line graphs based on arguments and existing data '''
-
+    values = request.form.getlist('check') 
     # if someone inputs n (neighborhood/list of neighborhoods)
     n_list = request.args.getlist('n')
     years = ['2010', '2011', '2012', '2013', '2014', '2015'] #x axis for graph
@@ -63,18 +63,29 @@ def buildGraph():
         #print final_list
 	if n in final_list.keys(): #if that neighborhood is in our dictionary of neighborhoods and complaints
           hood_complaints[n] = final_list[n] # add to final dictionary, hood complaints
+    if values:
+      for value in values:
+        if value in final_list.keys():
+          hood_complaints[value] = final_list[value]
     else: #if nothing else specified just output our list
       hood_complaints = final_list
-    bar_charts = [] # From pygal documentation
-    line_chart = pygal.Line(disable_xml_declaration=True)
+    line_chart = pygal.Line(disable_xml_declaration=True) #make line chart from pygal
     line_chart.title = 'Complaints Per Neighborhood by Intervals'
-    line_chart.x_labels = years
+    line_chart.x_labels = years #x axis is years
     title = "Seeing 311"
     # line_chart.x_labels = map(str, range(int(years[0]), int(years[-1])))
     for hood in hood_complaints:
-	line_chart.add(hood, hood_complaints[hood])
+	line_chart.add(hood, hood_complaints[hood]) # put neighborhood & value of no of complaints
+    gents = awesome(None) #all the gent neighborhoods
+    gent_list = []
+    for k,v in gents.iteritems():
+      temp = str(k)
+      append_str = ""
+      for val in v:
+	append_str += "({}-{})".format(val['start'],val['end'])
+      gent_list.append({"name": k, "intervals":append_str})
 
-    return flask.render_template('index.html', bar_charts=bar_charts, title=title, line_chart=line_chart)
+    return flask.render_template('index.html', hood_complaints=hood_complaints, title=title, line_chart=line_chart, gent_list=gent_list)
 
 # checking if we have any duplicate complaints in our database to be safe
 # we get a list of all values per key and use a list comprehension to only add the ones that were seen once
